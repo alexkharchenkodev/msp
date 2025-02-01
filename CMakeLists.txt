@@ -30,9 +30,12 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} \
     -fsanitize=undefined \
     -fsanitize=vla-bound \
     -fno-sanitize=alignment \
-    -fsanitize=leak \
     -fsanitize=object-size \
 ")
+
+if (NOT APPLE)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=leak")
+endif()
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
 
