@@ -123,6 +123,9 @@ install(TARGETS msp_fcu mspclient
 )
 install(DIRECTORY ${MSP_INCLUDE_DIR} DESTINATION include FILES_MATCHING PATTERN "*.hpp")
 
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+
+
 # pkg-config (optional, як було)
 set(PKG_CONFIG_LIBDIR       "\${prefix}/lib")
 set(PKG_CONFIG_INCLUDEDIR   "\${prefix}/include/")
