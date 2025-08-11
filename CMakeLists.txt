@@ -14,6 +14,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# якщо FindASIO.cmake лежить у корені твого суперпроєкту: <root>/cmake/modules
+# CMAKE_SOURCE_DIR тут — корінь суперпроєкту, коли msp тягнемо через add_subdirectory/FetchContent
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+
 # ---------- find ASIO (header-only) ----------
 # Prefer a config package if available
 find_package(ASIO QUIET)
@@ -122,9 +126,6 @@ install(TARGETS msp_fcu mspclient
   ARCHIVE DESTINATION lib
 )
 install(DIRECTORY ${MSP_INCLUDE_DIR} DESTINATION include FILES_MATCHING PATTERN "*.hpp")
-
-list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
-
 
 # pkg-config (optional, як було)
 set(PKG_CONFIG_LIBDIR       "\${prefix}/lib")
