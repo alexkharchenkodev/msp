@@ -51,7 +51,7 @@ if (NOT ASIO_INCLUDE_DIR)
   FetchContent_Declare(
     _asio_fetch
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-    GIT_TAG asio-1-30-2
+    GIT_TAG 84b558d124be15b280538d34c47bbdbd4cef6fd8
     GIT_PROGRESS TRUE
   )
   FetchContent_Populate(_asio_fetch)
