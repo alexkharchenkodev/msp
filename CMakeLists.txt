@@ -14,28 +14,65 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# якщо FindASIO.cmake лежить у корені твого суперпроєкту: <root>/cmake/modules
-# CMAKE_SOURCE_DIR тут — корінь суперпроєкту, коли msp тягнемо через add_subdirectory/FetchContent
-list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
-
-# ---------- find ASIO (header-only) ----------
-# Prefer a config package if available
-find_package(ASIO QUIET)
-if (NOT ASIO_FOUND)
-  # Fallback: header-only include dir
-  find_path(ASIO_INCLUDE_DIR
-    NAMES asio.hpp
-    HINTS ${ASIO_ROOT} ${ASIO_DIR}
-    PATH_SUFFIXES include asio
-  )
-  if (NOT ASIO_INCLUDE_DIR)
-    message(FATAL_ERROR "ASIO not found. Set ASIO_ROOT/ASIO_DIR or install ASIO.")
+# ---------- module path (try parent/superproject first) ----------
+# Коли збираємося як сабпроєкт через FetchContent/add_subdirectory,
+# ${CMAKE_SOURCE_DIR} зазвичай вказує на корінь суперпроєкту.
+foreach(_p
+  "${CMAKE_SOURCE_DIR}/cmake/modules"
+  "${PROJECT_SOURCE_DIR}/cmake/modules"
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/modules"
+)
+  if (EXISTS "${_p}")
+    list(PREPEND CMAKE_MODULE_PATH "${_p}")
   endif()
-  add_library(ASIO::ASIO INTERFACE)
-  target_include_directories(ASIO::ASIO INTERFACE ${ASIO_INCLUDE_DIR})
+endforeach()
+
+# ---------- threads ----------
+find_package(Threads REQUIRED)
+
+# ---------- find/fetch ASIO (header-only) ----------
+# 1) Спробувати модуль
+find_package(ASIO QUIET MODULE)
+
+# 2) Якщо модуль не спрацював, підключити його явно (щоб гарантовано відпрацював fetch)
+if (NOT ASIO_FOUND)
+  if (EXISTS "${CMAKE_SOURCE_DIR}/cmake/modules/FindASIO.cmake")
+    include("${CMAKE_SOURCE_DIR}/cmake/modules/FindASIO.cmake")
+  elseif (EXISTS "${PROJECT_SOURCE_DIR}/cmake/modules/FindASIO.cmake")
+    include("${PROJECT_SOURCE_DIR}/cmake/modules/FindASIO.cmake")
+  elseif (EXISTS "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/FindASIO.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/cmake/modules/FindASIO.cmake")
+  endif()
 endif()
 
-find_package(Threads REQUIRED)
+# 3) Остання спроба: локальний fetch без модуля
+if (NOT ASIO_FOUND)
+  include(FetchContent)
+  message(STATUS "ASIO not found via module — fetching locally...")
+  FetchContent_Declare(
+    _asio_fallback
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG        asio-1-30-2
+    GIT_SHALLOW    TRUE
+    GIT_PROGRESS   TRUE
+  )
+  FetchContent_Populate(_asio_fallback)
+  set(_ASIO_INC "${_asio_fallback_SOURCE_DIR}/asio/include")
+  if (EXISTS "${_ASIO_INC}/asio.hpp")
+    add_library(ASIO::ASIO INTERFACE IMPORTED GLOBAL)
+    set_target_properties(ASIO::ASIO PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${_ASIO_INC}"
+      INTERFACE_COMPILE_DEFINITIONS "ASIO_STANDALONE"
+    )
+    target_link_libraries(ASIO::ASIO INTERFACE Threads::Threads)
+    set(ASIO_FOUND TRUE)
+    message(STATUS "✅ ASIO include (fallback): ${_ASIO_INC}")
+  endif()
+endif()
+
+if (NOT ASIO_FOUND)
+  message(FATAL_ERROR "ASIO not found and fetch failed. Set ASIO_ROOT/ASIO_DIR or ensure cmake/modules/FindASIO.cmake is available.")
+endif()
 
 # ---------- targets ----------
 set(MSP_SOURCE_DIR src)
@@ -127,7 +164,7 @@ install(TARGETS msp_fcu mspclient
 )
 install(DIRECTORY ${MSP_INCLUDE_DIR} DESTINATION include FILES_MATCHING PATTERN "*.hpp")
 
-# pkg-config (optional, як було)
+# pkg-config (як було)
 set(PKG_CONFIG_LIBDIR       "\${prefix}/lib")
 set(PKG_CONFIG_INCLUDEDIR   "\${prefix}/include/")
 set(PKG_CONFIG_LIBS         "-L\${libdir} -lmsp_fcu -lmspclient")
@@ -138,8 +175,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pkg-config.pc.cmake
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
         DESTINATION lib/pkgconfig)
 
-# ---------- tests (залишив як є, але без глобальних флагів) ----------
+# ---------- tests ----------
 if (BUILD_TESTS)
   enable_testing()
-  # ... (твій існуючий блок для gtest; бажано також без глобальних флагів)
+  # ... (залиш без змін)
 endif()

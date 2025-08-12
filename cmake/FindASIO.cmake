@@ -4,6 +4,11 @@ include_guard(GLOBAL)
 # Already provided?
 if (TARGET ASIO::ASIO)
   set(ASIO_FOUND TRUE)
+  # Експорт стандартної змінної, якщо її очікують
+  get_target_property(_asio_inc ASIO::ASIO INTERFACE_INCLUDE_DIRECTORIES)
+  if (NOT ASIO_INCLUDE_DIR AND _asio_inc)
+    set(ASIO_INCLUDE_DIR "${_asio_inc}")
+  endif()
   return()
 endif()
 
@@ -11,7 +16,7 @@ find_package(Threads REQUIRED)
 
 set(ASIO_FOUND FALSE)
 
-# -- candidate paths --
+# ---- candidate search paths ----
 set(_ASIO_SEARCH_PATHS
   "${CMAKE_SOURCE_DIR}/third_party/asio"
   "${CMAKE_SOURCE_DIR}/external/asio"
@@ -20,6 +25,8 @@ set(_ASIO_SEARCH_PATHS
   "$ENV{ASIO_ROOT}"
   "$ENV{ASIO_DIR}"
   "$ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include"
+  "$ENV{VCPKG_DEFAULT_TRIPLET}"
+  "/usr/local/include"
   "/usr/include"
   "C:/Program Files (x86)/asio"
 )
@@ -27,8 +34,11 @@ set(_ASIO_SEARCH_PATHS
 if (DEFINED ASIO_ROOT)
   list(PREPEND _ASIO_SEARCH_PATHS "${ASIO_ROOT}")
 endif()
+if (DEFINED ASIO_DIR)
+  list(PREPEND _ASIO_SEARCH_PATHS "${ASIO_DIR}")
+endif()
 
-# 1) Try to find headers without fetching
+# 1) Try to find headers without fetching (no default paths first)
 find_path(ASIO_INCLUDE_DIR
   NAMES asio.hpp
   PATH_SUFFIXES include asio
@@ -36,6 +46,7 @@ find_path(ASIO_INCLUDE_DIR
   NO_DEFAULT_PATH
 )
 
+# 1.1) Try again with default paths enabled
 if (NOT ASIO_INCLUDE_DIR)
   find_path(ASIO_INCLUDE_DIR
     NAMES asio.hpp
@@ -48,17 +59,17 @@ if (NOT ASIO_INCLUDE_DIR)
   include(FetchContent)
 
   # chriskohlhoff/asio structure: <src>/asio/include/asio.hpp
+  # Зафіксований тег для відтворюваності (можеш змінити на потрібний)
   FetchContent_Declare(
     _asio_fetch
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-    GIT_TAG 84b558d124be15b280538d34c47bbdbd4cef6fd8
-    GIT_PROGRESS TRUE
+    GIT_TAG        asio-1-30-2
+    GIT_SHALLOW    TRUE
+    GIT_PROGRESS   TRUE
   )
   FetchContent_Populate(_asio_fetch)
 
-  # Expected include dir:
   set(ASIO_INCLUDE_DIR "${_asio_fetch_SOURCE_DIR}/asio/include")
-
   if (EXISTS "${ASIO_INCLUDE_DIR}/asio.hpp")
     # expose the root so subprojects can cache it
     set(ASIO_ROOT "${_asio_fetch_SOURCE_DIR}/asio" CACHE PATH "ASIO root" FORCE)
@@ -76,6 +87,8 @@ if (ASIO_INCLUDE_DIR)
     INTERFACE_COMPILE_DEFINITIONS "ASIO_STANDALONE"
   )
   target_link_libraries(ASIO::ASIO INTERFACE Threads::Threads)
+
+  # Для сумісності з find_package традиційними змінними
   set(ASIO_FOUND TRUE)
   message(STATUS "✅ ASIO include: ${ASIO_INCLUDE_DIR}")
 else()
